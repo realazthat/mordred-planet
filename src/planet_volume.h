@@ -48,6 +48,7 @@ class direction_t;class face_t;
 template<typename planet_renderer_t>
 struct planet_node_t;
 struct texture_freelist_t;
+struct vbuf_freelist_t;
 
 namespace Ogre {
 class Camera;
@@ -89,6 +90,11 @@ public:
   const Ogre::Real radius;
   const std::size_t max_level;
   
+  const std::size_t noise_res;
+  
+  //bordered noise resolution
+  const std::size_t bordered_noise_res;
+  
   const std::size_t noise_width;
   const std::size_t noise_height;
   
@@ -98,8 +104,14 @@ public:
   const std::size_t normals_width;
   const std::size_t normals_height;
   
+  const std::size_t vertices_width;
+  const std::size_t vertices_height;
+  
   const std::size_t heightmap_width;
   const std::size_t heightmap_height;
+  
+  const std::size_t static_index_count;
+  const std::size_t vertex_count;
   
   
   Ogre::Camera* mcamera;
@@ -124,6 +136,8 @@ private:
   boost::array< root_ptr_t, 6> roots;
   visibles_t visibles;
   
+  Ogre::MaterialPtr base_material;
+  Ogre::HardwareIndexBufferSharedPtr ibuf;
 private:
   //tree init functions
   
@@ -134,7 +148,15 @@ private:
   
   void initialize_tree_mesh(tree_type& tree);
   void initialize_tree_data(tree_type& tree);
+private:
+  //init functions
   
+  template<typename index_type>
+  void initialize_index_buffer(Ogre::HardwareIndexBufferSharedPtr& ibuf);
+private:
+  //utility functions
+  
+  Ogre::Vector3 to_planet_relative(const cube::face_t& face, Ogre::Vector2 angles) const;
 private:
   
   bool acceptable_pixel_error(const tree_type& tree, const Ogre::Camera& camera) const;
@@ -143,9 +165,11 @@ private:
   Ogre::TexturePtr get_available_diffuse_texture();
   Ogre::TexturePtr get_available_normals_texture();
   Ogre::TexturePtr get_available_heightmap_texture();
+  Ogre::HardwareVertexBufferSharedPtr get_available_vertex_buffer(std::size_t vertex_size, std::size_t vertex_count);
   
   
   typedef boost::scoped_ptr< texture_freelist_t > texture_freelist_ptr_t;
+  typedef boost::scoped_ptr< vbuf_freelist_t > vbuf_freelist_ptr_t;
   
   texture_freelist_ptr_t noise_texture_freelist;
   static std::size_t noise_texture_identifier;
@@ -158,6 +182,8 @@ private:
   
   texture_freelist_ptr_t heightmap_texture_freelist;
   static std::size_t heightmap_texture_identifier;
+  
+  vbuf_freelist_ptr_t heightmap_vbuf_freelist;
   
 };
 

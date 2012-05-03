@@ -11,9 +11,10 @@ SET( OGRE_LIB_LINK_DIR "${OGRE_LIB_LINK_DIR}" CACHE STRING
 include_directories(./include ./src ${OGRE_INCLUDE_DIR})
 
 add_executable(mordred-planet
-  src/planet_volume.cpp
   main.cpp
-  src/ogre_utility.cpp)
+  src/planet_volume.cpp
+  src/ogre_utility.cpp
+  src/BaseApplication.cpp)
 
 target_link_libraries(mordred-planet ${OGRE_LIBS})
 
