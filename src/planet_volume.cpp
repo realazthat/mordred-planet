@@ -182,7 +182,7 @@ planet_renderer_t::planet_renderer_t(Ogre::AxisAlignedBox bounds, Ogre::Real rad
   : bounds(bounds)
   , radius(radius)
   , max_level(max_level)
-  , noise_res(128)
+  , noise_res(64)
   , bordered_noise_res(1 + noise_res + 1)
   , noise_width(bordered_noise_res)
   , noise_height(bordered_noise_res)
@@ -190,8 +190,8 @@ planet_renderer_t::planet_renderer_t(Ogre::AxisAlignedBox bounds, Ogre::Real rad
   , diffuse_height(bordered_noise_res)
   , normals_width(bordered_noise_res)
   , normals_height(bordered_noise_res)
-  , vertices_width(32)
-  , vertices_height(32)
+  , vertices_width(16)
+  , vertices_height(16)
   , heightmap_width(1 + vertices_width + 1)
   , heightmap_height(1 + vertices_height + 1)
   , vertex_count(vertices_width * vertices_height)
@@ -205,8 +205,10 @@ planet_renderer_t::planet_renderer_t(Ogre::AxisAlignedBox bounds, Ogre::Real rad
   heightmap_texture_freelist.reset(new texture_freelist_t);
   
   ///FIXME: need unique name for this
-  base_material = Ogre::MaterialManager::getSingleton().create("planet_renderer-base-material",
-                                                          Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+  //base_material = Ogre::MaterialManager::getSingleton().create("planet_renderer-base-material",
+  //                                                        Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
+  
+  base_material = Ogre::MaterialManager::getSingleton().getByName("BaseWhiteNoLighting");
   
   if (static_index_count < boost::integer_traits< boost::uint_t<16>::exact >::const_max)
   {
@@ -219,19 +221,22 @@ planet_renderer_t::planet_renderer_t(Ogre::AxisAlignedBox bounds, Ogre::Real rad
   
   BOOST_FOREACH(const cube::face_t& face, cube::face_t::all())
   {
-    root_ptr_t& root_ptr = roots[face.index()];
-    
-    root_ptr.reset(new root_type);
-    
-    initialize_root(*root_ptr, face);
-    
-    root_ptr->split();
-    
-    BOOST_FOREACH(tree_type& child, root_ptr->children())
+    if (face.direction().positive())
     {
-      initialize_tree(child);
+      root_ptr_t& root_ptr = roots[face.index()];
       
-      visibles.push_back(&child);
+      root_ptr.reset(new root_type);
+      
+      initialize_root(*root_ptr, face);
+      
+      root_ptr->split();
+      
+      BOOST_FOREACH(tree_type& child, root_ptr->children())
+      {
+        initialize_tree(child);
+        
+        visibles.push_back(&child);
+      }
     }
   }
 }
@@ -299,9 +304,6 @@ void planet_renderer_t::initialize_index_buffer(Ogre::HardwareIndexBufferSharedP
     {
       for (std::size_t x0 = 0; x0 < (vertices_width - 1); ++x0)
       {
-        ///Base vertex positions
-        //std::size_t x0 = h_x - 1;
-        //std::size_t y0 = h_y - 1;
         
         ///Next vertex positions
         std::size_t x1 = x0 + 1;
@@ -314,12 +316,12 @@ void planet_renderer_t::initialize_index_buffer(Ogre::HardwareIndexBufferSharedP
         index_type x1y1i = (y1 * vertices_width) + x1;
         
         *ibuf_ptr++ = x0y0i;
-        *ibuf_ptr++ = x1y1i;
         *ibuf_ptr++ = x1y0i;
+        *ibuf_ptr++ = x1y1i;
         
         *ibuf_ptr++ = x1y1i;
-        *ibuf_ptr++ = x0y0i;
         *ibuf_ptr++ = x0y1i;
+        *ibuf_ptr++ = x0y0i;
         
       }
     }
@@ -582,7 +584,7 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
     std::size_t element_offset = 0;
 
     element_offset += decl->addElement(STATIC_BINDING, element_offset, Ogre::VET_FLOAT3, Ogre::VES_POSITION).getSize();
-    //element_offset += decl->addElement(STATIC_BINDING, element_offset, Ogre::VET_FLOAT3, Ogre::VES_NORMAL).getSize();
+    element_offset += decl->addElement(STATIC_BINDING, element_offset, Ogre::VET_COLOUR, Ogre::VES_DIFFUSE).getSize();
   }
   
   HardwareVertexBufferSharedPtr static_buf = get_available_vertex_buffer(decl->getVertexSize(STATIC_BINDING), vertex_count);
@@ -616,9 +618,9 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
     HardwareBufferScopedLock heightmap_buf_lock(heightmap_buf, HardwareBuffer::HBL_READ_ONLY);
     HardwareBufferScopedLock static_buf_lock(*static_buf, HardwareBuffer::HBL_DISCARD);
 
-    float* static_buf_ptr0 = static_cast<float*>(static_buf_lock.data());
+    void* static_buf_ptr0 = static_cast<void*>(static_buf_lock.data());
     
-    float* static_buf_ptr = static_buf_ptr0;
+    void* static_buf_ptr = static_buf_ptr0;
     
     float* heightmap_buf_ptr0 = static_cast<float*>(heightmap_buf_lock.data());
     
@@ -631,11 +633,32 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
         
         //heightmap_buf_ptr0[ heightmap_buf_index ]
         
-        Vector3 position(vx, 0, vy);
+        //Vector3 position(vx, 0, vy);
         
-        *static_buf_ptr++ = position.x;
-        *static_buf_ptr++ = position.y;
-        *static_buf_ptr++ = position.z;
+        Vector2 min = planet_node.quad_bounds.min();
+        Vector2 max = planet_node.quad_bounds.max();
+        
+        Vector2 position2d = min + (max - min) * (Vector2(vx,vy)/Vector2(vertices_width, vertices_height));
+        Vector3 surface_postion = to_planet_relative(planet_node.face, position2d);
+        
+        float* vertex_buf_ptr = static_cast<float*>(static_buf_ptr);
+        *vertex_buf_ptr++ = surface_postion.x;
+        *vertex_buf_ptr++ = surface_postion.y;
+        *vertex_buf_ptr++ = surface_postion.z;
+        
+        static_buf_ptr = vertex_buf_ptr;
+        
+        RGBA* colour_ptr = static_cast<RGBA*>(static_buf_ptr);
+        
+        const cube::direction_t& direction = planet_node.face.direction();
+        Vector3 colour_vector(direction.x(), direction.y(), direction.z());
+        colour_vector += Vector3(1,1,1);
+        colour_vector /= 2;
+        ColourValue colour(colour_vector.x, colour_vector.y, colour_vector.z);
+        
+        *colour_ptr++ = Ogre::VertexElement::convertColourValue(colour, VET_COLOUR);
+        
+        static_buf_ptr = colour_ptr;
         
         //static_buf_ptr0[vertex_buf_index] = position;
       }
@@ -830,23 +853,23 @@ Ogre::Vector3 planet_renderer_t::to_planet_relative(const cube::face_t& face, Og
   
   using namespace Ogre;
   
-  Radian ax( angles.x * Math::PI / 2.0 );
-  Radian ay( angles.y * Math::PI / 2.0 );
+  Radian ax( angles.x * Math::PI / 4.0 );
+  Radian ay( angles.y * Math::PI / 4.0 );
   
   Quaternion qx;
   Quaternion qy;
   if (direction.x() != 0) {
     qx = Quaternion(ax, Vector3::UNIT_Y);
-    qy = Quaternion(ay, Vector3::UNIT_X);
+    qy = Quaternion(ay, Vector3::UNIT_Z);
   } else if (direction.y() != 0) {
     qx = Quaternion(ax, Vector3::UNIT_Z);
     qy = Quaternion(ay, Vector3::UNIT_X);
   } else if (direction.z() != 0) {
     qx = Quaternion(ax, Vector3::UNIT_X);
-    qy = Quaternion(ax, Vector3::UNIT_Y);
+    qy = Quaternion(ay, Vector3::UNIT_Y);
   }
   
-  if (direction.positive())
+  if (!direction.positive())
   {
     qx = qx.Inverse();
     qy = qy.Inverse();
@@ -857,10 +880,12 @@ Ogre::Vector3 planet_renderer_t::to_planet_relative(const cube::face_t& face, Og
   
   Vector3 quad_center_point_at_surface = quad_direction * radius;
   
-  quad_center_point_at_surface = qx * quad_center_point_at_surface;
-  quad_center_point_at_surface = qy * quad_center_point_at_surface;
+  Quaternion q = (qx + qy);
+  q.normalise();
+  //quad_center_point_at_surface = qx * quad_center_point_at_surface;
+  //quad_center_point_at_surface = qy * quad_center_point_at_surface;
   
-  return quad_center_point_at_surface;
+  return q * (quad_direction) * radius;
 }
 
 
@@ -899,10 +924,10 @@ bool planet_renderer_t::acceptable_pixel_error(const planet_renderer_t::tree_typ
 
   
   ///World length of highest LOD node
-  Ogre::Real x_0 = 64.0;
+  Ogre::Real x_0 = 16.0;
   
   ///All nodes within this distance will surely be rendered
-  Ogre::Real f_0 = x_0 * 1.2;
+  Ogre::Real f_0 = x_0 * 4.1;
   
   ///Total nodes
   // Ogre::Real t = Ogre::Math::Pow(2 * (f_0 / x_0), 3);

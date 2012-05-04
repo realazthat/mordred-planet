@@ -37,7 +37,7 @@ void MordredApplication::createScene()
   
   AxisAlignedBox bounds(Vector3(0,0,0), Vector3(1024,1024,1024));
   Real radius = 300;
-  std::size_t max_levels = 15;
+  std::size_t max_levels = 5;
   
   {
     SceneNode* ogre_head_node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
