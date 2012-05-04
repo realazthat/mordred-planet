@@ -548,7 +548,7 @@ template<typename T, std::size_t CHILDREN, typename corner_t>
 inline
 boost::iterator_range< typename branch_t<T, CHILDREN, corner_t>::const_traversal_iterator >
 branch_t<T, CHILDREN, corner_t>::
-branch_t::traversal() const
+traversal() const
 {
   typedef corner_traverser<const branch_t> traverser_t;
   traverser_t me(this);
@@ -560,7 +560,7 @@ template<typename T, std::size_t CHILDREN, typename corner_t>
 inline
 boost::iterator_range< typename branch_t<T, CHILDREN, corner_t>::traversal_iterator >
 branch_t<T, CHILDREN, corner_t>::
-branch_t::traversal()
+traversal()
 {
   typedef corner_traverser<branch_t> traverser_t;
   traverser_t me(this);
@@ -607,7 +607,7 @@ template<typename T, std::size_t CHILDREN, typename corner_t>
 inline
 bool
 branch_t<T, CHILDREN, corner_t>::
-branch_t::is_child() const
+is_child() const
 {
   return !!mparent;
 }
@@ -617,7 +617,7 @@ template<typename T, std::size_t CHILDREN, typename corner_t>
 inline
 bool
 branch_t<T, CHILDREN, corner_t>::
-branch_t::is_child_of(const branch_t<T, CHILDREN, corner_t>& other) const
+is_child_of(const branch_t<T, CHILDREN, corner_t>& other) const
 {
   if (!!mparent && (mparent == &other))
   {
@@ -632,7 +632,7 @@ template<typename T, std::size_t CHILDREN, typename corner_t>
 inline
 bool
 branch_t<T, CHILDREN, corner_t>::
-branch_t::is_parent_of(const self_type& other) const
+is_parent_of(const self_type& other) const
 {
   if ( !!other.mparent && (other.mparent == this) )
   {
