@@ -19,14 +19,16 @@ struct MordredApplication
   
   virtual void createScene();
   virtual bool keyPressed(const OIS::KeyEvent& arg);
-  
+  virtual bool mouseMoved(const OIS::MouseEvent& arg);
 private:
   boost::scoped_ptr< planet_renderer_t > planet_renderer;
+  Ogre::SceneNode* planet_scene_node;
   Ogre::ManualObject* debug_manual;
 };
 
 MordredApplication::MordredApplication()
-  : debug_manual(NULL)
+  : planet_scene_node(NULL)
+  , debug_manual(NULL)
 {
 
 }
@@ -36,9 +38,15 @@ void MordredApplication::createScene()
 {
   using namespace Ogre;
   
-  AxisAlignedBox bounds(Vector3(0,0,0), Vector3(1024,1024,1024));
-  Real radius = 300;
-  std::size_t max_levels = 8;
+  mSceneMgr->setCameraRelativeRendering(true);
+  
+  mCamera->setNearClipDistance(Real(1) / Real(10));
+  
+  
+  Real radius = 6353;
+  AxisAlignedBox bounds(Vector3(-radius,-radius,-radius), Vector3(radius,radius,radius));
+  std::size_t max_levels = 22;
+  mCamera->setFarClipDistance(radius);
   
   {
     SceneNode* ogre_head_node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
@@ -61,14 +69,18 @@ void MordredApplication::createScene()
   }
   
   {
-    SceneNode* planet_scene_node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
+    planet_scene_node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
     
     planet_renderer.reset(new planet_renderer_t(bounds, radius, max_levels));
     
     planet_renderer->mcamera = mCamera;
     
     planet_scene_node->attachObject(planet_renderer.get());
+    planet_scene_node->setPosition(0,0,0);
     
+    mCamera->detachFromParent();
+    planet_scene_node->attachObject(mCamera);
+    mCamera->setPosition(0,0,0);
   }
 }
 
@@ -112,6 +124,29 @@ bool MordredApplication::keyPressed(const OIS::KeyEvent& arg)
 }
 
 
+bool MordredApplication::mouseMoved(const OIS::MouseEvent& evt)
+{
+  using namespace Ogre;
+  if(!evt.state.buttonDown(OIS::MB_Right))
+  {
+    Vector3 scale = planet_scene_node->getScale();
+    Vector3 world_camera_position = mCamera->getDerivedPosition();
+    
+    //Vector3 planet_camera_position = planet_scene_node->convertWorldToLocalPosition(world_camera_position);
+    
+    if (evt.state.Z.rel > 0) {
+      planet_scene_node->setScale(scale * 2);
+      mCamera->setPosition(mCamera->getPosition() * 2);
+    } else if (evt.state.Z.rel < 0) {
+      planet_scene_node->setScale(scale / 2); 
+      mCamera->setPosition(mCamera->getPosition() / 2);
+    }
+    
+    
+  }
+  
+  return BaseApplication::mouseMoved(evt);
+}
 
 
 

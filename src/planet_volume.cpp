@@ -635,8 +635,10 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
         Vector2 min = planet_node.quad_bounds.min();
         Vector2 max = planet_node.quad_bounds.max();
         
-        Vector2 position2d = min + (max - min) * (Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1));
-        Vector3 surface_postion = to_planet_relative(planet_node.face, position2d);
+        Vector2 relative_position2D = Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1);
+        Vector2 relative_sphere_face_position2d = min + (max - min) * (Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1));
+        Vector3 surface_postion = to_planet_relative(planet_node.face, relative_sphere_face_position2d);
+        //Vector3 surface_postion(relative_position2D.x, relative_position2D.y, 0);
         
         float* vertex_buf_ptr = static_cast<float*>(static_buf_ptr);
         *vertex_buf_ptr++ = surface_postion.x;
@@ -703,7 +705,7 @@ void planet_renderer_t::_updateRenderQueue(Ogre::RenderQueue* queue)
   using namespace Ogre;
   
   BOOST_ASSERT(!!getParentSceneNode());
-  getParentSceneNode()->setScale(Ogre::Vector3::UNIT_SCALE);
+  //getParentSceneNode()->setScale(Ogre::Vector3::UNIT_SCALE);
   
   if (mcamera)
   {
@@ -935,20 +937,22 @@ bool planet_renderer_t::acceptable_pixel_error(const planet_renderer_t::tree_typ
   
   Real node_size = (world_relative_max - world_relative_min).length();
   
-  Ogre::Vector3 node_center = (world_relative_max - world_relative_min) / 2.0;
+  Ogre::Vector3 node_center = (world_relative_max + world_relative_min) / 2.0;
 
   
   ///World length of highest LOD node
-  Ogre::Real x_0 = 32.0;
+  Ogre::Real x_0 = Real(1) / Real(1024);
   
   ///All nodes within this distance will surely be rendered
-  Ogre::Real f_0 = x_0 * 1.2;
+  Ogre::Real f_0 = x_0 * 1.1;
   
   ///Total nodes
   // Ogre::Real t = Ogre::Math::Pow(2 * (f_0 / x_0), 3);
   
   ///Lowest octree level
-  Ogre::Real n_max = Ogre::Math::Log2(bounds.getSize().length() / x_0);
+  //Ogre::Real n_max = Ogre::Math::Log2(bounds.getSize().length() / x_0);
+  Ogre::Real n_max = max_level;
+  
   
   ///Node distance from camera
   Ogre::Real d = std::max(f_0, node_center.distance(cam_pos));
@@ -957,7 +961,9 @@ bool planet_renderer_t::acceptable_pixel_error(const planet_renderer_t::tree_typ
   Ogre::Real n_opt = n_max - Ogre::Math::Log2(d / f_0);
   
   
-  Ogre::Real size_opt = bounds.getSize().length() / Ogre::Math::Pow(2, n_opt);
+  //Ogre::Real size_opt = bounds.getSize().length() / Ogre::Math::Pow(2, n_opt);
+  
+  Ogre::Real size_opt = radius / Ogre::Math::Pow(2, n_opt);
   
   return size_opt > node_size;
 }

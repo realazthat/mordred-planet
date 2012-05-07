@@ -109,6 +109,7 @@ protected:
     OIS::InputManager* mInputManager;
     OIS::Mouse*    mMouse;
     OIS::Keyboard* mKeyboard;
+    Ogre::Real speed;
 };
 
 #endif // #ifndef __BaseApplication_h_

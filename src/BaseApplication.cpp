@@ -40,6 +40,7 @@ BaseApplication::BaseApplication(void)
   , mInputManager(0)
   , mMouse(0)
   , mKeyboard(0)
+  , speed(30)
 {
 
   
@@ -314,7 +315,7 @@ bool BaseApplication::frameRenderingQueued(const Ogre::FrameEvent& evt)
   
   
   Vector3 camera_move_vector(Vector3::ZERO);
-  Vector3 speed(900,900,900);
+  Vector3 speedv(speed,speed,speed);
   Vector3 forward(0,0,-1);
   Vector3 left(-1,0,0);
   Vector3 right(1,0,0);
@@ -323,10 +324,10 @@ bool BaseApplication::frameRenderingQueued(const Ogre::FrameEvent& evt)
   
   if (mKeyboard->isKeyDown(OIS::KC_LSHIFT))
   {
-    speed *= 5;
+    speedv *= 5;
   }
   
-  Vector3 distance = speed * evt.timeSinceLastFrame;
+  Vector3 distance = speedv * evt.timeSinceLastFrame;
   
   if (mKeyboard->isKeyDown(OIS::KC_W))
   {
@@ -421,7 +422,15 @@ bool BaseApplication::mouseMoved( const OIS::MouseEvent& evt )
     
     camera().yaw(full_circle * xratio);
     camera().pitch(full_circle * yratio);
+    
+    if (evt.state.Z.rel > 0) {
+      speed *= 2;
+    } else if (evt.state.Z.rel < 0) {
+      speed /= 2;
+    }
   }
+  
+  
   return true;
 }
 
