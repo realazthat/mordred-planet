@@ -10,6 +10,7 @@
 #include <OGRE/OgreSceneManager.h>
 #include <OGRE/OgreEntity.h>
 #include <OGRE/OgreManualObject.h>
+#include <ogre_utility.h>
 
 struct MordredApplication
   : BaseApplication
@@ -37,7 +38,7 @@ void MordredApplication::createScene()
   
   AxisAlignedBox bounds(Vector3(0,0,0), Vector3(1024,1024,1024));
   Real radius = 300;
-  std::size_t max_levels = 5;
+  std::size_t max_levels = 8;
   
   {
     SceneNode* ogre_head_node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
@@ -46,7 +47,17 @@ void MordredApplication::createScene()
   }
   
   {
+    ManualObject* axis_man = mSceneMgr->createManualObject();
     
+    axis_man->begin("BaseWhiteNoLighting", Ogre::RenderOperation::OT_TRIANGLE_LIST);
+    
+    draw_axis(axis_man);
+    
+    axis_man->end();
+    
+    SceneNode* axis_sn = mSceneMgr->getRootSceneNode()->createChildSceneNode();
+    
+    axis_sn->attachObject(axis_man);
   }
   
   {
@@ -57,7 +68,6 @@ void MordredApplication::createScene()
     planet_renderer->mcamera = mCamera;
     
     planet_scene_node->attachObject(planet_renderer.get());
-    
     
   }
 }

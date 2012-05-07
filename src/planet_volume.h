@@ -156,7 +156,7 @@ private:
 private:
   //utility functions
   
-  Ogre::Vector3 to_planet_relative(const cube::face_t& face, Ogre::Vector2 angles) const;
+  Ogre::Vector3 to_planet_relative(const cube::face_t& face, Ogre::Vector2 uv) const;
 private:
   
   bool acceptable_pixel_error(const tree_type& tree, const Ogre::Camera& camera) const;

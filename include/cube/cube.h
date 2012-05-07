@@ -321,6 +321,7 @@ struct direction_t
   boost::int8_t x() const;
   boost::int8_t y() const;
   boost::int8_t z() const;
+  boost::uint8_t axis() const;
   bool positive() const;
   
   boost::uint8_t index() const;

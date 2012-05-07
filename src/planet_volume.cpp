@@ -221,22 +221,19 @@ planet_renderer_t::planet_renderer_t(Ogre::AxisAlignedBox bounds, Ogre::Real rad
   
   BOOST_FOREACH(const cube::face_t& face, cube::face_t::all())
   {
-    if (face.direction().positive())
+    root_ptr_t& root_ptr = roots[face.index()];
+    
+    root_ptr.reset(new root_type);
+    
+    initialize_root(*root_ptr, face);
+    
+    root_ptr->split();
+    
+    BOOST_FOREACH(tree_type& child, root_ptr->children())
     {
-      root_ptr_t& root_ptr = roots[face.index()];
+      initialize_tree(child);
       
-      root_ptr.reset(new root_type);
-      
-      initialize_root(*root_ptr, face);
-      
-      root_ptr->split();
-      
-      BOOST_FOREACH(tree_type& child, root_ptr->children())
-      {
-        initialize_tree(child);
-        
-        visibles.push_back(&child);
-      }
+      visibles.push_back(&child);
     }
   }
 }
@@ -638,7 +635,7 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
         Vector2 min = planet_node.quad_bounds.min();
         Vector2 max = planet_node.quad_bounds.max();
         
-        Vector2 position2d = min + (max - min) * (Vector2(vx,vy)/Vector2(vertices_width, vertices_height));
+        Vector2 position2d = min + (max - min) * (Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1));
         Vector3 surface_postion = to_planet_relative(planet_node.face, position2d);
         
         float* vertex_buf_ptr = static_cast<float*>(static_buf_ptr);
@@ -847,45 +844,64 @@ if (!(debug_unique_visibles.find(visible) == debug_unique_visibles.end()))
 #endif
 }
 
-Ogre::Vector3 planet_renderer_t::to_planet_relative(const cube::face_t& face, Ogre::Vector2 angles) const
+Ogre::Vector3 planet_renderer_t::to_planet_relative(const cube::face_t& face, Ogre::Vector2 uv) const
 {
   const cube::direction_t& direction = face.direction();
   
   using namespace Ogre;
   
-  Radian ax( angles.x * Math::PI / 4.0 );
-  Radian ay( angles.y * Math::PI / 4.0 );
+  Vector3 cube_xyz;
   
-  Quaternion qx;
-  Quaternion qy;
-  if (direction.x() != 0) {
-    qx = Quaternion(ax, Vector3::UNIT_Y);
-    qy = Quaternion(ay, Vector3::UNIT_Z);
-  } else if (direction.y() != 0) {
-    qx = Quaternion(ax, Vector3::UNIT_Z);
-    qy = Quaternion(ay, Vector3::UNIT_X);
-  } else if (direction.z() != 0) {
-    qx = Quaternion(ax, Vector3::UNIT_X);
-    qy = Quaternion(ay, Vector3::UNIT_Y);
+  /*
+  std::size_t j = 0;
+  for (std::size_t axis = 0; axis < 3; ++axis)
+  {
+    if (face.direction().axis() != axis)
+      cube_xyz[ axis ] = uv[ j++ ];
+    else
+      cube_xyz[ axis ] = 1;
   }
+  BOOST_ASSERT(j == 2);
+  */
+  
+  boost::uint8_t axis = direction.axis();
+  
+  
+  cube_xyz[ (axis + 0) % 3 ] = 1;
+  cube_xyz[ (axis + 1) % 3 ] = uv[0];
+  cube_xyz[ (axis + 2) % 3 ] = uv[1];
   
   if (!direction.positive())
   {
-    qx = qx.Inverse();
-    qy = qy.Inverse();
+    boost::swap(cube_xyz[(axis + 1) % 3], cube_xyz[(axis + 2) % 3]);
+    cube_xyz = -cube_xyz;
   }
   
+  //cube_xyz[0] = uv[0];
+  //cube_xyz[1] = uv[1];
+  //cube_xyz[2] = 1;
   
-  Vector3 quad_direction(direction.x(), direction.y(), direction.z());
   
-  Vector3 quad_center_point_at_surface = quad_direction * radius;
+  Vector3 sphere_xyz;
   
-  Quaternion q = (qx + qy);
-  q.normalise();
-  //quad_center_point_at_surface = qx * quad_center_point_at_surface;
-  //quad_center_point_at_surface = qy * quad_center_point_at_surface;
+  for (std::size_t i = 0; i < 3; ++i)
+  {
+    Real& x_i_p = sphere_xyz[i];
+    const Real& x_i = cube_xyz[ (i + 0) % 3];
+    const Real& y_i = cube_xyz[ (i + 1) % 3];
+    const Real& z_i = cube_xyz[ (i + 2) % 3];
+    
+    x_i_p = x_i 
+          * Math::Sqrt(
+            Real(1)
+          - Math::Sqr(y_i) / Real(2)
+          - Math::Sqr(z_i) / Real(2) + 
+          + (Math::Sqr(y_i) * Math::Sqr(z_i)) / Real(3));
+  }
   
-  return q * (quad_direction) * radius;
+  sphere_xyz *= radius;
+  
+  return sphere_xyz;
 }
 
 
@@ -898,7 +914,6 @@ bool planet_renderer_t::acceptable_pixel_error(const planet_renderer_t::tree_typ
   
   const planet_node_type& root_node = *root.value();
   
-  const quad_bounds_t& root_quad = root_node.quad_bounds;
   const quad_bounds_t& quad = planet_node.quad_bounds;
   
   
@@ -924,10 +939,10 @@ bool planet_renderer_t::acceptable_pixel_error(const planet_renderer_t::tree_typ
 
   
   ///World length of highest LOD node
-  Ogre::Real x_0 = 16.0;
+  Ogre::Real x_0 = 32.0;
   
   ///All nodes within this distance will surely be rendered
-  Ogre::Real f_0 = x_0 * 4.1;
+  Ogre::Real f_0 = x_0 * 1.2;
   
   ///Total nodes
   // Ogre::Real t = Ogre::Math::Pow(2 * (f_0 / x_0), 3);

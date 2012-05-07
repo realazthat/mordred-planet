@@ -378,6 +378,21 @@ bool direction_t::positive() const
 }
 
 CUBE_INLINE
+boost::uint8_t direction_t::axis() const
+{
+  if (x() != 0)
+    return 0;
+  if (y() != 0)
+    return 1;
+  if (z() != 0)
+    return 2;
+  
+  BOOST_ASSERT(false);
+}
+
+
+
+CUBE_INLINE
 boost::array<direction_t, 4>
 direction_t::adjacent() const
 {
