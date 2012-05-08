@@ -549,7 +549,7 @@ noise_stack_t& planet_renderer_t::get_noise_stack(std::size_t level)
     noisepp::RidgedMultiModule& caves = *caves_ptr;
     noise_stack.modules.push_back(caves_ptr);
     
-    caves.setFrequency(radius / 5);
+    caves.setFrequency(radius / 2);
     caves.setOctaveCount(2);
     caves.setScale(2);
     caves.setGain(2);
@@ -935,7 +935,7 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
         std::size_t hv = vv + 1;
         std::size_t heightmap_buf_index = hv * heightmap_width + hu;
         
-        float height = heightmap_buf_ptr0[ heightmap_buf_index ];
+        //float height = heightmap_buf_ptr0[ heightmap_buf_index ];
         
         //Vector3 position(vx, 0, vy);
         
@@ -959,10 +959,9 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
         
         Vector2 relative_sphere_face_position2d = omin + (omax - omin) * (Vector2(vu,vv)/Vector2(vertices_width - 1, vertices_height - 1));
         Vector3 surface_postion = to_planet_relative(planet_node.face, relative_sphere_face_position2d);
-        //wVector3 surface_postion(relative_position2D.x, relative_position2D.y, 0);
         
-        surface_postion.normalise();
-        surface_postion *= radius + height;
+        //surface_postion.normalise();
+        //surface_postion *= radius + height;
         
         surface_postion = renderable.planet_relative_transform.inverse() * surface_postion;
         
