@@ -45,8 +45,8 @@ void MordredApplication::createScene()
   
   Real radius = 6353;
   AxisAlignedBox bounds(Vector3(-radius,-radius,-radius), Vector3(radius,radius,radius));
-  std::size_t max_levels = 22;
-  mCamera->setFarClipDistance(radius);
+  std::size_t max_levels = 24;
+  mCamera->setFarClipDistance(0);
   
   {
     SceneNode* ogre_head_node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
@@ -80,7 +80,7 @@ void MordredApplication::createScene()
     
     mCamera->detachFromParent();
     planet_scene_node->attachObject(mCamera);
-    mCamera->setPosition(0,0,0);
+    mCamera->setPosition(radius + 500,radius + 500,radius + 500);
   }
 }
 
@@ -127,7 +127,15 @@ bool MordredApplication::keyPressed(const OIS::KeyEvent& arg)
 bool MordredApplication::mouseMoved(const OIS::MouseEvent& evt)
 {
   using namespace Ogre;
-  if(!evt.state.buttonDown(OIS::MB_Right))
+  
+  if (mKeyboard->isKeyDown(OIS::KC_E))
+  {
+    if (evt.state.Z.rel > 0) {
+      mCamera->setNearClipDistance(mCamera->getNearClipDistance() * Real(2));
+    } else if (evt.state.Z.rel < 0) {
+      mCamera->setNearClipDistance(mCamera->getNearClipDistance() / Real(2));
+    }
+  } else if(!evt.state.buttonDown(OIS::MB_Right))
   {
     Vector3 scale = planet_scene_node->getScale();
     Vector3 world_camera_position = mCamera->getDerivedPosition();
@@ -135,14 +143,12 @@ bool MordredApplication::mouseMoved(const OIS::MouseEvent& evt)
     //Vector3 planet_camera_position = planet_scene_node->convertWorldToLocalPosition(world_camera_position);
     
     if (evt.state.Z.rel > 0) {
-      planet_scene_node->setScale(scale * 2);
-      mCamera->setPosition(mCamera->getPosition() * 2);
+      planet_scene_node->setScale(scale * Real(2));
+      mCamera->setPosition(mCamera->getPosition() * Real(2));
     } else if (evt.state.Z.rel < 0) {
-      planet_scene_node->setScale(scale / 2); 
-      mCamera->setPosition(mCamera->getPosition() / 2);
+      planet_scene_node->setScale(scale / Real(2)); 
+      mCamera->setPosition(mCamera->getPosition() / Real(2));
     }
-    
-    
   }
   
   return BaseApplication::mouseMoved(evt);

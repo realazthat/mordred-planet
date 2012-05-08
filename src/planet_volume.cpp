@@ -43,6 +43,11 @@
 #include <OGRE/OgreMaterialManager.h>
 #include <OGRE/OgreHardwareBufferManager.h>
 
+#include <boost/rational.hpp>
+#include <NoisePipeline.h>
+#include <boost/ptr_container/ptr_list.hpp>
+#include <NoiseRidgedMulti.h>
+
 
 #if 0
 template<typename integer_t>
@@ -72,58 +77,117 @@ struct quad_bounds_t
 #endif
 
 
+struct noise_stack_t
+  : boost::noncopyable
+{
+  noise_stack_t()
+    : result_element(NULL)
+    , cache(NULL)
+  {
+    cache = pipeline.createCache();
+  }
+  
+  noisepp::Pipeline3D pipeline;
+  noisepp::PipelineElement3D* result_element;
+  noisepp::Cache* cache;
+  
+  boost::ptr_list< noisepp::Module > modules;
+};
 
 struct quad_bounds_t{
+  typedef std::size_t integer_t;
+  typedef boost::rational<integer_t> rational_t;
+  struct vector2_t
+  {
+    vector2_t(const rational_t& x, const rational_t& y)
+      : x(x)
+      , y(y)
+    {}
+    
+    bool operator==(const vector2_t& other) const
+    {
+      return x == other.x && y == other.y;
+    }
+    
+    vector2_t operator-(const vector2_t& other) const
+    {
+      return vector2_t(x - other.x, y - other.y);
+    }
+    
+    vector2_t operator+(const vector2_t& other) const
+    {
+      return vector2_t(x + other.x, y + other.y);
+    }
+    
+    vector2_t operator*(const rational_t& rational) const
+    {
+      return vector2_t(x * rational, y * rational);
+    }
+    
+    rational_t x;
+    rational_t y;
+  };
+  
+  static vector2_t minimized_vector(const vector2_t& lhs, const vector2_t& rhs)
+  {
+    return vector2_t(std::min(lhs.x, rhs.x),
+                     std::min(lhs.y, rhs.y)); 
+  }
+  
+  static vector2_t maximized_vector(const vector2_t& lhs, const vector2_t& rhs)
+  {
+    return vector2_t(std::max(lhs.x, rhs.x),
+                     std::max(lhs.y, rhs.y)); 
+  }
+  
   quad_bounds_t()
-    : min_max_array(create_min_max_array(Ogre::Vector2::ZERO, Ogre::Vector2::ZERO))
+    : min_max_array(create_min_max_array(vector2_t(rational_t(0,1), rational_t(0,1)),
+                                         vector2_t(rational_t(0,1), rational_t(0,1))))
   {}
   
-  quad_bounds_t(const Ogre::Vector2& min, const Ogre::Vector2& max)
+  quad_bounds_t(const vector2_t& min, const vector2_t& max)
     : min_max_array(create_min_max_array(min, max))
   {
     BOOST_ASSERT(min == minimized_vector(min,max));
     BOOST_ASSERT(max == maximized_vector(min,max));
   }
   
-  const Ogre::Vector2& min() const
+  const vector2_t& min() const
   {return min_max_array[0];}
   
-  Ogre::Vector2& min()
+  vector2_t& min()
   {return min_max_array[0];}
   
-  Ogre::Vector2& max()
+  vector2_t& max()
   {return min_max_array[1];}
   
-  const Ogre::Vector2& max() const
+  const vector2_t& max() const
   {return min_max_array[1];}
   
-  Ogre::Vector2 get_corner(const square::corner_t& corner) const
+  vector2_t get_corner(const square::corner_t& corner) const
   {
-    return Ogre::Vector2( min_max_array[corner.x_i()].x, min_max_array[corner.y_i()].y );
+    return vector2_t( min_max_array[corner.x_i()].x, min_max_array[corner.y_i()].y );
   }
   
-  Ogre::Vector2 get_center() const
+  vector2_t get_center() const
   {
-    using namespace Ogre;
-    return min() + ((max() - min()) * (Real(1)/Real(2)));
+    return min() + ((max() - min()) * rational_t(1,2));
   }
   
   quad_bounds_t sub_box(const square::corner_t& corner) const
   {
-    using namespace Ogre;
-    
-    Vector2 c0 = get_center();
-    Vector2 c1 = get_corner(corner);
+    vector2_t c0 = get_center();
+    vector2_t c1 = get_corner(corner);
     
     return quad_bounds_t(minimized_vector(c0, c1), maximized_vector(c0, c1));
   }
 private:
-  static boost::array<Ogre::Vector2, 2> create_min_max_array(const Ogre::Vector2& min, const Ogre::Vector2& max)
+  static boost::array<vector2_t, 2> create_min_max_array(const vector2_t& min, const vector2_t& max)
   {
-    boost::array<Ogre::Vector2, 2> result = {{min, max}};
+    boost::array<vector2_t, 2> result = {{min, max}};
     return result;
   }
-  boost::array<Ogre::Vector2, 2> min_max_array;
+  boost::array<vector2_t, 2> min_max_array;
 };
 
 
@@ -208,7 +272,7 @@ planet_renderer_t::planet_renderer_t(Ogre::AxisAlignedBox bounds, Ogre::Real rad
   //base_material = Ogre::MaterialManager::getSingleton().create("planet_renderer-base-material",
   //                                                        Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
   
-  base_material = Ogre::MaterialManager::getSingleton().getByName("BaseWhiteNoLighting");
+  base_material = Ogre::MaterialManager::getSingleton().getByName("mordredmaterial");
   
   if (static_index_count < boost::integer_traits< boost::uint_t<16>::exact >::const_max)
   {
@@ -340,7 +404,7 @@ void planet_renderer_t::initialize_root(planet_renderer_t::tree_type& tree, cons
   
   tree.value() = boost::make_shared<planet_node_type>(boost::ref(*this), face);
   tree.value()->tree = &tree;
-  tree.value()->quad_bounds = quad_bounds_t(Vector2(-1,-1), Vector2(1,1));
+  tree.value()->quad_bounds = quad_bounds_t(quad_bounds_t::vector2_t(0,0), quad_bounds_t::vector2_t(1,1));
   
   initialize_root_data(tree);
 }
@@ -379,7 +443,7 @@ Ogre::TexturePtr planet_renderer_t::get_available_noise_texture()
                                                            noise_width, noise_height,
                                                            0,
                                                            Ogre::PF_FLOAT32_R,
-                                                           Ogre::TU_STATIC_WRITE_ONLY);
+                                                           Ogre::TU_DYNAMIC);
 }
 
 Ogre::TexturePtr planet_renderer_t::get_available_diffuse_texture()
@@ -468,17 +532,89 @@ Ogre::HardwareVertexBufferSharedPtr planet_renderer_t::get_available_vertex_buff
   
 }
 
+noise_stack_t& planet_renderer_t::get_noise_stack(std::size_t level)
+{
+  BOOST_ASSERT(level <= max_level);
+  
+  if (!(level < noise_hierarchy.size()))
+  {
+    noise_hierarchy.resize(level + 1);
+  }
+  
+  if (!noise_hierarchy[level].result_element)
+  {
+    noise_stack_t& noise_stack = noise_hierarchy[level];
+    
+    std::auto_ptr< noisepp::RidgedMultiModule > caves_ptr(new noisepp::RidgedMultiModule);
+    noisepp::RidgedMultiModule& caves = *caves_ptr;
+    noise_stack.modules.push_back(caves_ptr);
+    
+    noisepp::ElementID element_id = caves.addToPipeline(&noise_stack.pipeline);
+    
+    noise_stack.result_element = noise_stack.pipeline.getElement(element_id);
+  }
+  
+  BOOST_ASSERT(!!noise_hierarchy[level].result_element);
+  
+  return noise_hierarchy[level];
+}
+
+
+void planet_renderer_t::initialize_root_data_noise(planet_renderer_t::tree_type& tree)
+{
+  using namespace Ogre;
+    
+  planet_node_type& planet_node = *tree.value();
+  
+  planet_node.noise = get_available_noise_texture();
+  Vector2 omin(boost::rational_cast<Real>(planet_node.quad_bounds.min().x),
+               boost::rational_cast<Real>(planet_node.quad_bounds.min().y));
+  omin = (omin * 2) - Vector2(1,1);
+  Vector2 omax(boost::rational_cast<Real>(planet_node.quad_bounds.max().x),
+                boost::rational_cast<Real>(planet_node.quad_bounds.max().y));
+  omax = (omax * 2) - Vector2(1,1);
+  
+  noise_stack_t& noise_stack = get_noise_stack(tree.level());
+  
+  {
+    HardwareBufferScopedLock noise_buf_lock(*planet_node.noise->getBuffer(), HardwareBuffer::HBL_DISCARD);
+  
+    float* noise_buf_ptr0 = static_cast<float*>(noise_buf_lock.data());
+    
+    float* noise_buf_ptr = noise_buf_ptr0;
+    
+    for (std::size_t v = 0; v < noise_height; ++v)
+    {
+      for (std::size_t u = 0; u < noise_width; ++u)
+      {
+        Vector2 relative_sphere_face_position2d = omin + (omax - omin) * (Vector2(u,v)/Vector2(noise_width - 1, noise_height - 1));
+
+        
+        Vector3 planet_relative_position = to_planet_relative(planet_node.face, relative_sphere_face_position2d);
+        
+        const Real& x = planet_relative_position.x;
+        const Real& y = planet_relative_position.y;
+        const Real& z = planet_relative_position.z;
+        
+        noise_buf_ptr0[ v * noise_width + u ] = noise_stack.result_element->getValue(x,y,z, noise_stack.cache);
+      }
+    }
+  }
+
+}
 
 
 void planet_renderer_t::initialize_root_data(planet_renderer_t::tree_type& tree)
 {
+  using namespace Ogre;
+    
   planet_node_type& planet_node = *tree.value();
   
-  planet_node.noise = get_available_noise_texture();
   //planet_node.diffuse = get_available_diffuse_texture();
   //planet_node.normals = get_available_normals_texture();
   //planet_node.height = get_available_heightmap_texture();
   //planet_node.material = base_material;
+  initialize_root_data_noise(tree);
 }
 
 
@@ -513,25 +649,149 @@ void planet_renderer_t::initialize_tree_data(planet_renderer_t::tree_type& tree)
   const tree_type& parent = *tree.parent();
   planet_node_type& planet_node = *tree.value();
 
+  const planet_node_type& parent_node = *parent.value();
+  
   planet_node.noise = get_available_noise_texture();
   planet_node.diffuse = get_available_diffuse_texture();
   planet_node.normals = get_available_normals_texture();
   planet_node.height = get_available_heightmap_texture();
   planet_node.material = base_material;
   
+  
+  
+  
   using namespace Ogre;
+  
+  
+  
+  
+  Vector2 omin(boost::rational_cast<Real>(planet_node.quad_bounds.min().x),
+               boost::rational_cast<Real>(planet_node.quad_bounds.min().y));
+  omin = (omin * 2) - Vector2(1,1);
+  Vector2 omax(boost::rational_cast<Real>(planet_node.quad_bounds.max().x),
+               boost::rational_cast<Real>(planet_node.quad_bounds.max().y));
+  omax = (omax * 2) - Vector2(1,1);
+  
+  
+  {
+    
+    std::size_t pv0 = tree.corner().y() ? noise_height / 2 : 0;
+    std::size_t pu0 = tree.corner().x() ? noise_width / 2 : 0;
+    
+    std::size_t pv_end = pv0 + noise_height / 2;
+    std::size_t pu_end = pu0 + noise_width / 2;
+    
+#ifndef NDEBUG
+    for (std::size_t pv = pv0; pv < pv_end; ++pv)
+    {
+      for (std::size_t pu = pu0; pu < pu_end; ++pu)
+      {
+        std::size_t u0 = (pu - pu0) * 2;
+        std::size_t v0 = (pv - pv0) * 2;
+        
+        std::size_t puvi = pv * noise_width + pu;
+        
+        BOOST_ASSERT(puvi < (noise_width * noise_height));
+        
+        for( std::size_t vd = 0; vd < 2; ++vd)
+        {
+          for (std::size_t ud = 0; ud < 2; ++ud)
+          {
+            std::size_t u  = u0 + ud;
+            std::size_t v  = v0 + vd;
+            
+            std::size_t uvi = v * noise_width + u;
+
+            BOOST_ASSERT(uvi < (noise_width * noise_height));
+          }
+        }
+      }
+    }
+#endif
+    
+    noise_stack_t& noise_stack = get_noise_stack(tree.level());
+    
+    HardwarePixelBufferSharedPtr noise_buf = planet_node.noise->getBuffer();
+    HardwareBufferScopedLock noise_buf_lock(*noise_buf, HardwareBuffer::HBL_DISCARD);
+    
+    HardwarePixelBufferSharedPtr parent_noise_buf = parent_node.noise->getBuffer();
+    HardwareBufferScopedLock parent_noise_buf_lock(*parent_noise_buf, HardwareBuffer::HBL_READ_ONLY);
+  
+    float* noise_buf_ptr0 = static_cast<float*>( noise_buf_lock.data() );
+    float* noise_buf_ptr = noise_buf_ptr0;
+    const float* p_noise_buf_ptr0 = static_cast<const float*>( parent_noise_buf_lock.data() );
+    const float* p_noise_buf_ptr = p_noise_buf_ptr0;
+    
+    
+    
+    for (std::size_t pv = pv0; pv < pv_end; ++pv)
+    {
+      for (std::size_t pu = pu0; pu < pu_end; ++pu)
+      {
+        std::size_t u0 = (pu - pu0) * 2;
+        std::size_t v0 = (pv - pv0) * 2;
+        
+        std::size_t puvi = pv * noise_width + pu;
+        
+        float pvalue = p_noise_buf_ptr0[puvi];
+        
+        for( std::size_t vd = 0; vd < 2; ++vd)
+        {
+          for (std::size_t ud = 0; ud < 2; ++ud)
+          {
+            std::size_t u  = u0 + ud;
+            std::size_t v  = v0 + vd;
+            
+            std::size_t uvi = v * noise_width + u;
+            
+            Vector2 relative_sphere_face_position2d = omin + (omax - omin)
+              * (Vector2(Real(u)-Real(1),Real(v)-Real(1))/Vector2(noise_res - 1, noise_res - 1));
+
+      
+            Vector3 planet_relative_position = to_planet_relative(planet_node.face, relative_sphere_face_position2d);
+      
+            const Real& x = planet_relative_position.x;
+            const Real& y = planet_relative_position.y;
+            const Real& z = planet_relative_position.z;
+            
+            //volatile float garbage = pvalue + noise_stack.result_element->getValue(x, y, z, noise_stack.cache);
+            
+            //noise_buf_ptr0[ uvi ] = pvalue + noise_stack.result_element->getValue(x, y, z, noise_stack.cache);
+            
+          }
+        }
+      
+      }
+    }
+  }
+  
+  
+  
+  
   {
     const HardwarePixelBufferSharedPtr& hm_buf = planet_node.height->getBuffer();
     HardwareBufferScopedLock hm_buf_lock(*hm_buf, HardwareBuffer::HBL_DISCARD);
     
+    const HardwarePixelBufferSharedPtr& noise_buf = planet_node.noise->getBuffer();
+    HardwareBufferScopedLock noise_buf_lock(*noise_buf, HardwareBuffer::HBL_READ_ONLY);
+    
     float* hm_buf_ptr0 = static_cast<float*>( hm_buf_lock.data() );
     float* hm_buf_ptr = hm_buf_ptr0;
+    const float* noise_buf_ptr0 = static_cast<const float*>( noise_buf_lock.data() );
+    const float* noise_buf_ptr = noise_buf_ptr0;
     
-    for(std::size_t y = 0; y < heightmap_height; ++y)
+    for(std::size_t hv = 0; hv < heightmap_height; ++hv)
     {
-      for(std::size_t x = 0; x < heightmap_width; ++x)
+      for(std::size_t hu = 0; hu < heightmap_width; ++hu)
       {
-        *hm_buf_ptr++ = 0;
+        std::size_t huvi = hv* heightmap_width + hu;
+        std::size_t nu = hu * (noise_res / vertices_width);
+        std::size_t nv = hv * (noise_res / vertices_height);
+        
+        std::size_t nuvi = nv * noise_width + nu;
+        
+        hm_buf_ptr0[ huvi ] = noise_buf_ptr0[nuvi];
+        //*hm_buf_ptr++ = 0;
       }
     }
   }
@@ -543,14 +803,54 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
   
   planet_node_type& planet_node = *tree.value();
   
+  const cube::face_t& face = planet_node.face;
+  const cube::direction_t& direction = face.direction();
   
   
   
   
-  
-  planet_node.renderable.reset(new ChunkRenderable(planet_node.material, *this) );
+  planet_node.renderable.reset(new ChunkRenderable(planet_node.material, *this));
   
   ChunkRenderable& renderable = *planet_node.renderable;
+  
+  
+  {
+    //Vector3 translation = Vector3::ZERO;
+    //translation[direction.axis()] = direction.positive() ? radius : -radius;
+    
+    Vector3 translation = Vector3::UNIT_Z;
+    
+    Vector3 scale(Vector3::UNIT_SCALE);
+    scale *= radius / Math::Pow(2,Real(tree.level()));
+    
+    
+    boost::array<Quaternion, 6> face_rotations;
+    
+    face_rotations[cube::direction_t::get( 0, 0, 1).index()] = Quaternion::IDENTITY;
+    face_rotations[cube::direction_t::get( 0, 0,-1).index()] = Quaternion(Radian(+Math::PI), Vector3::UNIT_Y);
+    face_rotations[cube::direction_t::get( 0, 1, 0).index()] = Quaternion(Radian(+Math::PI), Vector3::UNIT_X);
+    face_rotations[cube::direction_t::get( 0,-1, 0).index()] = Quaternion(Radian(-Math::PI), Vector3::UNIT_X);
+    face_rotations[cube::direction_t::get( 1, 0, 0).index()] = Quaternion(Radian(+Math::PI / Real(2)), Vector3::UNIT_Y);
+    face_rotations[cube::direction_t::get(-1, 0, 0).index()] = Quaternion(Radian(-Math::PI / Real(2)), Vector3::UNIT_Y);
+    
+    Quaternion orientation = face_rotations[direction.index()];
+    
+    translation = orientation * translation * radius;
+    
+    {
+      quad_bounds_t::vector2_t min = planet_node.quad_bounds.min();
+      Vector2 omin(boost::rational_cast<Real>(min.x),
+                   boost::rational_cast<Real>(min.y));
+      omin = (omin * 2) - Vector2(1,1);
+      
+      translation = to_planet_relative(planet_node.face, omin);
+    }
+    //renderable.planet_relative_transform = Matrix4::IDENTITY;
+    renderable.planet_relative_transform.makeTransform(translation, scale, orientation);
+    
+  }
+  
+  
   renderable.index_data.reset(new IndexData);
   renderable.vertex_data.reset(new VertexData);
   
@@ -632,13 +932,26 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
         
         //Vector3 position(vx, 0, vy);
         
-        Vector2 min = planet_node.quad_bounds.min();
-        Vector2 max = planet_node.quad_bounds.max();
+        quad_bounds_t::vector2_t min = planet_node.quad_bounds.min();
+        quad_bounds_t::vector2_t max = planet_node.quad_bounds.max();
         
         Vector2 relative_position2D = Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1);
-        Vector2 relative_sphere_face_position2d = min + (max - min) * (Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1));
+        
+        relative_position2D = (relative_position2D * 2) - Vector2(1,1);
+        
+        
+        Vector2 omin(boost::rational_cast<Real>(min.x),
+                     boost::rational_cast<Real>(min.y));
+        omin = (omin * 2) - Vector2(1,1);
+        Vector2 omax(boost::rational_cast<Real>(max.x),
+                     boost::rational_cast<Real>(max.y));
+        omax = (omax * 2) - Vector2(1,1);
+        
+        Vector2 relative_sphere_face_position2d = omin + (omax - omin) * (Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1));
         Vector3 surface_postion = to_planet_relative(planet_node.face, relative_sphere_face_position2d);
-        //Vector3 surface_postion(relative_position2D.x, relative_position2D.y, 0);
+        //wVector3 surface_postion(relative_position2D.x, relative_position2D.y, 0);
+        
+        surface_postion = renderable.planet_relative_transform.inverse() * surface_postion;
         
         float* vertex_buf_ptr = static_cast<float*>(static_buf_ptr);
         *vertex_buf_ptr++ = surface_postion.x;
@@ -846,7 +1159,18 @@ if (!(debug_unique_visibles.find(visible) == debug_unique_visibles.end()))
 #endif
 }
 
-Ogre::Vector3 planet_renderer_t::to_planet_relative(const cube::face_t& face, Ogre::Vector2 uv) const
+template<typename vector2_t>
+Ogre::Vector3 planet_renderer_t::to_planet_relative(const cube::face_t& face, const vector2_t& uv) const
+{
+  using namespace Ogre;
+  
+  Vector2 o_uv(boost::rational_cast<Real>( uv.x ), boost::rational_cast<Real>( uv.y ));
+  o_uv *= 2;
+  o_uv -= Vector2(1,1);
+  return to_planet_relative(face,o_uv);
+}
+
+Ogre::Vector3 planet_renderer_t::to_planet_relative(const cube::face_t& face, const Ogre::Vector2& uv) const
 {
   const cube::direction_t& direction = face.direction();
   
@@ -925,8 +1249,15 @@ bool planet_renderer_t::acceptable_pixel_error(const planet_renderer_t::tree_typ
   //Vector2 quad_c00 = quad.get_corner(square::corner_t::get(false,false));
   //Vector2 quad_c11 = quad.get_corner(square::corner_t::get( true, true));
   
-  Vector3 planet_relative_min = to_planet_relative(planet_node.face, quad.min());
-  Vector3 planet_relative_max = to_planet_relative(planet_node.face, quad.max());
+  Vector2 min(boost::rational_cast<Real>(quad.min().x),
+              boost::rational_cast<Real>(quad.min().y));
+  min = (min*2) - Vector2(1,1);
+  Vector2 max(boost::rational_cast<Real>(quad.max().x),
+              boost::rational_cast<Real>(quad.max().y));
+  max = (max*2) - Vector2(1,1);
+  
+  Vector3 planet_relative_min = to_planet_relative(planet_node.face, min);
+  Vector3 planet_relative_max = to_planet_relative(planet_node.face, max);
   
   BOOST_ASSERT(!!getParentSceneNode());
   SceneNode& sn = *getParentSceneNode();
@@ -940,8 +1271,10 @@ bool planet_renderer_t::acceptable_pixel_error(const planet_renderer_t::tree_typ
   Ogre::Vector3 node_center = (world_relative_max + world_relative_min) / 2.0;
 
   
+  
   ///World length of highest LOD node
-  Ogre::Real x_0 = Real(1) / Real(1024);
+  Ogre::Real x_0 = Real(1) / Real(2048);
+  //Ogre::Real x_0 = Real(320);
   
   ///All nodes within this distance will surely be rendered
   Ogre::Real f_0 = x_0 * 1.1;

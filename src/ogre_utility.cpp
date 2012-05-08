@@ -60,8 +60,7 @@ void ChunkRenderable::getRenderOperation(Ogre::RenderOperation& op)
 
 void ChunkRenderable::getWorldTransforms(Ogre::Matrix4* xform) const
 {
-  BOOST_ASSERT(!!movable.getParentSceneNode());
-  *xform = movable._getParentNodeFullTransform();
+  *xform = movable._getParentNodeFullTransform() * planet_relative_transform;
 }
 
 Ogre::Real ChunkRenderable::getSquaredViewDepth(const Ogre::Camera* cam) const

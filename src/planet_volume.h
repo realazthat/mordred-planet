@@ -40,6 +40,7 @@
 #include <boost/scoped_ptr.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/array.hpp>
+#include <boost/ptr_container/ptr_vector.hpp>
 
 namespace cube {
 class direction_t;class face_t;
@@ -54,6 +55,7 @@ namespace Ogre {
 class Camera;
 }
 
+struct noise_stack_t;
 
 struct planet_renderer_t
   : Ogre::MovableObject
@@ -143,6 +145,7 @@ private:
   
   void initialize_root(tree_type& tree, const cube::face_t& face);
   void initialize_root_data(tree_type& tree);
+  void initialize_root_data_noise(tree_type& tree);
   
   void initialize_tree(tree_type& tree);
   
@@ -156,7 +159,10 @@ private:
 private:
   //utility functions
   
-  Ogre::Vector3 to_planet_relative(const cube::face_t& face, Ogre::Vector2 uv) const;
+  template<typename vector2_t>
+  Ogre::Vector3 to_planet_relative(const cube::face_t& face, const vector2_t& uv) const;
+
+  Ogre::Vector3 to_planet_relative(const cube::face_t& face, const Ogre::Vector2& uv) const;
 private:
   
   bool acceptable_pixel_error(const tree_type& tree, const Ogre::Camera& camera) const;
@@ -185,6 +191,8 @@ private:
   
   vbuf_freelist_ptr_t heightmap_vbuf_freelist;
   
+  boost::ptr_vector<noise_stack_t> noise_hierarchy;
+  noise_stack_t& get_noise_stack(std::size_t level);
 };
 
 

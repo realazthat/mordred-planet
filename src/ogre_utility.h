@@ -96,6 +96,8 @@ struct ChunkRenderable : public Ogre::Renderable
   boost::scoped_ptr<Ogre::VertexData> vertex_data;
   boost::scoped_ptr<Ogre::IndexData> index_data;
   Ogre::RenderOperation renderop;
+  
+  Ogre::Matrix4 planet_relative_transform;
 };
 
 
