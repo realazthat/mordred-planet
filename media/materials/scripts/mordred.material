@@ -1,8 +1,8 @@
 // By madmarx, thanks to nvidia for their paper in gpu gems 3.
-vertex_program triplanarmaterial1_vs cg
+vertex_program mordredmaterial1_vs cg
 {
-  source triplanarmaterial.cg										
-  entry_point triplanar_OS_vs								
+  source mordredmaterial.cg										
+  entry_point mordredmaterial_OS_vs								
   profiles vs_1_1 arbvp1										
   default_params
   {															
@@ -10,10 +10,10 @@ vertex_program triplanarmaterial1_vs cg
   }
 }
 
-fragment_program triplanarmaterial1_ps cg 
+fragment_program mordredmaterial1_ps cg 
 {
-  source triplanarmaterial.cg
-  entry_point triplanar_OS_ps
+  source mordredmaterial.cg
+  entry_point mordredmaterial_OS_ps
   profiles ps_3_0 fp40
   
   default_params
@@ -29,50 +29,17 @@ fragment_program triplanarmaterial1_ps cg
   
 }
 
-material triplanarmaterial
+material mordredmaterial
 {
   technique
   {
     pass
     {
-      vertex_program_ref triplanarmaterial1_vs
+      vertex_program_ref mordredmaterial1_vs
       {}
 
-      fragment_program_ref triplanarmaterial1_ps
+      fragment_program_ref mordredmaterial1_ps
       {}
-
-      texture_unit
-      {
-        texture rock.png 0
-        //texture dirt_grayrocky_diffusespecular.png
-      }
-    }
-  }
-}
-
-
-material VertexColouredLit
-{
-  technique
-  {
-    pass
-    {
-      lighting on
-      ambient 1.0 1.0 1.0 1.0
-      diffuse vertexcolour
-    }
-  }
-}
-
-material VertexColouredUnlit
-{
-  technique
-  {
-    pass
-    {
-      lighting off
-      ambient 1.0 1.0 1.0 1.0
-      diffuse vertexcolour
     }
   }
 }

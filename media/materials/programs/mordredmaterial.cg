@@ -1,0 +1,50 @@
+
+
+
+
+
+void mordredmaterial_OS_vs(
+  in float4 iPosition : POSITION,
+  in float4 iColour : COLOR,
+
+  uniform float4x4 worldviewproj,
+  
+  out float4 oViewPositionV : POSITION,
+
+  out float4 oPosition : TEXCOORD0,
+  out float4 oColour : COLOR,
+  out float4 oViewPosition : TEXCOORD1
+)
+{  
+  oViewPositionV = mul(worldviewproj, iPosition);
+  oViewPosition = oViewPositionV;
+
+  oPosition = iPosition;
+  oColour = iColour;
+}
+
+void mordredmaterial_OS_ps(
+  in float4 iPosition : TEXCOORD0,
+  in float4 iColour : COLOR,
+  in float4 iViewPosition : TEXCOORD1,
+
+  uniform float4 lightPosition,
+  uniform float3 eyePosition,
+  uniform float4 lightDiffuse,
+  uniform float4 lightSpecular,
+  uniform float exponent,
+  uniform float4 ambient,
+
+
+  out float4 oColour : COLOR
+)
+{
+  //float3 absNormal = normalize(abs( iNormal.xyz ));
+
+  oColour = iColour;
+  
+  //oColour = blended_color * Lit.y + blended_color * Lit.z + (ambient * blended_color);
+
+}
+
+
