@@ -95,7 +95,7 @@ struct noise_stack_t
 };
 
 struct quad_bounds_t{
-  typedef std::size_t integer_t;
+  typedef boost::uint64_t integer_t;
   typedef boost::rational<integer_t> rational_t;
   struct vector2_t
   {
@@ -772,7 +772,7 @@ void planet_renderer_t::initialize_tree_data(planet_renderer_t::tree_type& tree)
   
   
   
-  
+  /*
   {
     const HardwarePixelBufferSharedPtr& hm_buf = planet_node.height->getBuffer();
     HardwareBufferScopedLock hm_buf_lock(*hm_buf, HardwareBuffer::HBL_DISCARD);
@@ -800,6 +800,7 @@ void planet_renderer_t::initialize_tree_data(planet_renderer_t::tree_type& tree)
       }
     }
   }
+  */
 }
 
 void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
@@ -1285,7 +1286,8 @@ bool planet_renderer_t::acceptable_pixel_error(const planet_renderer_t::tree_typ
   
   
   ///World length of highest LOD node
-  Ogre::Real x_0 = Real(1) / Real(2048);
+  //Ogre::Real x_0 = Real(1) / Real(2048);
+  Ogre::Real x_0 = Real(1) / Math::Pow(2, max_level - 13);
   //Ogre::Real x_0 = Real(320);
   
   ///All nodes within this distance will surely be rendered

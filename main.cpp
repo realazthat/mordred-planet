@@ -38,15 +38,16 @@ void MordredApplication::createScene()
 {
   using namespace Ogre;
   
-  mSceneMgr->setCameraRelativeRendering(true);
+  //mSceneMgr->setCameraRelativeRendering(true);
   
   mCamera->setNearClipDistance(Real(1) / Real(10));
   
   
   Real radius = 6353;
   AxisAlignedBox bounds(Vector3(-radius,-radius,-radius), Vector3(radius,radius,radius));
-  std::size_t max_levels = 24;
+  std::size_t max_levels = 33;
   mCamera->setFarClipDistance(0);
+  mCamera->setPosition(radius + 500,radius + 500,radius + 500);
   
   {
     SceneNode* ogre_head_node = mSceneMgr->getRootSceneNode()->createChildSceneNode();
@@ -78,9 +79,9 @@ void MordredApplication::createScene()
     planet_scene_node->attachObject(planet_renderer.get());
     planet_scene_node->setPosition(0,0,0);
     
-    mCamera->detachFromParent();
-    planet_scene_node->attachObject(mCamera);
-    mCamera->setPosition(radius + 500,radius + 500,radius + 500);
+    //mCamera->detachFromParent();
+    //planet_scene_node->attachObject(mCamera);
+    //mCamera->setPosition(radius + 500,radius + 500,radius + 500);
   }
 }
 
