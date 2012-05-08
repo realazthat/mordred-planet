@@ -549,6 +549,11 @@ noise_stack_t& planet_renderer_t::get_noise_stack(std::size_t level)
     noisepp::RidgedMultiModule& caves = *caves_ptr;
     noise_stack.modules.push_back(caves_ptr);
     
+    caves.setFrequency(radius / 5);
+    caves.setOctaveCount(2);
+    caves.setScale(2);
+    caves.setGain(2);
+    
     noisepp::ElementID element_id = caves.addToPipeline(&noise_stack.pipeline);
     
     noise_stack.result_element = noise_stack.pipeline.getElement(element_id);
@@ -755,8 +760,8 @@ void planet_renderer_t::initialize_tree_data(planet_renderer_t::tree_type& tree)
             const Real& z = planet_relative_position.z;
             
             //volatile float garbage = pvalue + noise_stack.result_element->getValue(x, y, z, noise_stack.cache);
-            
-            //noise_buf_ptr0[ uvi ] = pvalue + noise_stack.result_element->getValue(x, y, z, noise_stack.cache);
+            Real factor = (radius / 500) / Math::Pow(2, tree.level());
+            noise_buf_ptr0[ uvi ] = pvalue + noise_stack.result_element->getValue(x, y, z, noise_stack.cache) * factor;
             
           }
         }
@@ -919,23 +924,25 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
     
     void* static_buf_ptr = static_buf_ptr0;
     
-    float* heightmap_buf_ptr0 = static_cast<float*>(heightmap_buf_lock.data());
+    const float* heightmap_buf_ptr0 = static_cast<const float*>(heightmap_buf_lock.data());
     
-    for (std::size_t vy = 0; vy < vertices_height; ++vy)
+    for (std::size_t vv = 0; vv < vertices_height; ++vv)
     {
-      for (std::size_t vx = 0; vx < vertices_width; ++vx)
+      for (std::size_t vu = 0; vu < vertices_width; ++vu)
       {
-        std::size_t vertex_buf_index = vy * vertices_width + vx;
-        std::size_t heightmap_buf_index = (vy+1) * heightmap_width + (vx+1);
+        std::size_t vertex_buf_index = vv * vertices_width + vu;
+        std::size_t hu = vu + 1;
+        std::size_t hv = vv + 1;
+        std::size_t heightmap_buf_index = hv * heightmap_width + hu;
         
-        //heightmap_buf_ptr0[ heightmap_buf_index ]
+        float height = heightmap_buf_ptr0[ heightmap_buf_index ];
         
         //Vector3 position(vx, 0, vy);
         
         quad_bounds_t::vector2_t min = planet_node.quad_bounds.min();
         quad_bounds_t::vector2_t max = planet_node.quad_bounds.max();
         
-        Vector2 relative_position2D = Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1);
+        Vector2 relative_position2D = Vector2(vu,vv)/Vector2(vertices_width - 1, vertices_height - 1);
         
         relative_position2D = (relative_position2D * 2) - Vector2(1,1);
         
@@ -947,9 +954,15 @@ void planet_renderer_t::initialize_tree_mesh(planet_renderer_t::tree_type& tree)
                      boost::rational_cast<Real>(max.y));
         omax = (omax * 2) - Vector2(1,1);
         
-        Vector2 relative_sphere_face_position2d = omin + (omax - omin) * (Vector2(vx,vy)/Vector2(vertices_width - 1, vertices_height - 1));
+        
+        
+        
+        Vector2 relative_sphere_face_position2d = omin + (omax - omin) * (Vector2(vu,vv)/Vector2(vertices_width - 1, vertices_height - 1));
         Vector3 surface_postion = to_planet_relative(planet_node.face, relative_sphere_face_position2d);
         //wVector3 surface_postion(relative_position2D.x, relative_position2D.y, 0);
+        
+        surface_postion.normalise();
+        surface_postion *= radius + height;
         
         surface_postion = renderable.planet_relative_transform.inverse() * surface_postion;
         
