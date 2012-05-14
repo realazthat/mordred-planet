@@ -33,6 +33,8 @@ add_executable(mordred-planet
 target_link_libraries(mordred-planet ${NOISEPP_LIBS} ${OGRE_LIBS})
 
 
+add_library(gpunoise src/gpunoise/add3d.cpp src/gpunoise/types.cpp src/gpunoise/const3d.cpp src/gpunoise/module3d.cpp)
+
 
 add_subdirectory(include)
 
